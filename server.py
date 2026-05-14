@@ -678,8 +678,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-DEFAULT_REPORTS_DIR   = r" %userprofile%\Documents\Claude\ai-triage"
-DEFAULT_BRIEFINGS_DIR = r" %userprofile%\Documents\Claude\Daily briefing\Reports"
+DEFAULT_REPORTS_DIR   = Path.home() / "Documents" / "Claude" / "ai-triage"
+DEFAULT_BRIEFINGS_DIR = Path.home() / "Documents" / "Claude" / "Daily briefing" / "Reports"
 
 
 def main():
