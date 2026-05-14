@@ -1,0 +1,20 @@
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Generated HTML reports
+data/ai-triage/Reports/
+data/Daily briefing/Reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
