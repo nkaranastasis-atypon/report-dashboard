@@ -21,6 +21,9 @@ data\
 shell\
   run_server.cmd                   ← Kill any existing :8765 process, then start server
   run_silent.vbs                   ← Launch server.py in a hidden window (no console)
+Cowork tasks\
+  Cowork-Jira-Triage.md            ← Agent task: poll Jira + Gmail → ai-triage reports
+  Cowork-Daily-Briefing.md         ← Agent task: daily briefing → briefing HTML
 ```
 
 ### Expected reports folder structure
@@ -123,3 +126,28 @@ Both `data/ai-triage/script/md_to_html.py` and `data/Daily briefing/script/md_to
 ```bat
 python data\ai-triage\script\md_to_html.py input.md output.html
 ```
+
+## Cowork tasks
+
+The `Cowork tasks/` folder contains the GitHub Copilot agent task definitions that produce the HTML reports consumed by this dashboard.
+
+| File | Task | Output |
+|------|------|--------|
+| `Cowork-Jira-Triage.md` | Polls Jira for assigned and engagement tickets updated since the last run; assesses each for required action; generates one scoped markdown report per actionable item, then converts it to HTML | `data\ai-triage\Reports\YYYYMMDD\<action>_<TICKET>_YYYYMMDD_HHmmss.html` |
+| `Cowork-Daily-Briefing.md` | Pulls all assigned/unresolved Jira tickets and mentions; writes a prioritized daily briefing to markdown, then converts it to HTML | `data\Daily briefing\Reports\YYYY-MM-DD.html` |
+
+### Jira triage task (`Cowork-Jira-Triage.md`)
+
+- Reads a last-run timestamp from `jira_poll_state.txt`; aborts if fewer than 20 minutes have passed
+- Runs two JQL queries: assigned tickets + SAGE engagement tickets updated since the last run
+- Deduplicates and assesses each ticket for required SA action (reply, triage, discover, verify)
+- Also scans unread Gmail (non-Jira, unlabelled) for actionable emails
+- Generates one report per actionable item; filename encodes the action verb, ticket key, date, and time
+- Action verbs: `Triage` · `Discover` · `Reply` · `Verify`
+
+### Daily briefing task (`Cowork-Daily-Briefing.md`)
+
+- Queries all assigned, unresolved tickets across SAGE and LIT projects; flags anything due this week or blocked
+- Checks for mentions of the user in tickets not directly assigned
+- Runs a secondary pass for callouts to "Tier1 Release Managers"
+- Writes a prioritized briefing MD file named `YYYY-MM-DD.md`, converts it to HTML, and appends a line to `action_log.txt`
