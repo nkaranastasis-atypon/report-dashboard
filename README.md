@@ -129,7 +129,7 @@ python data\ai-triage\script\md_to_html.py input.md output.html
 
 ## Cowork tasks
 
-The `Cowork tasks/` folder contains the GitHub Copilot agent task definitions that produce the HTML reports consumed by this dashboard.
+The `Cowork tasks/` folder contains the Claude task definitions that produce the HTML reports consumed by this dashboard.
 
 | File | Task | Output |
 |------|------|--------|
