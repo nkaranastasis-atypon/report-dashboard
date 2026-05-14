@@ -72,11 +72,11 @@ python server.py --briefings-dir "D:\Briefings"
 python server.py --port 9000
 ```
 
-Or use the shell helpers:
+Or use the (Windows) shell helpers:
 
 ```bat
 shell\run_server.cmd     ← interactive (stops any existing :8765 process first)
-shell\run_silent.vbs     ← background / no console window
+shell\run_silent.vbs     ← background / no console window (to use with Windows Task Scheduler)
 ```
 
 Then open → **http://localhost:8765**
