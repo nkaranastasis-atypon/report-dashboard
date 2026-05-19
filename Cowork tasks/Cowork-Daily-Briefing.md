@@ -4,7 +4,7 @@
 
 
 
-Using the 'daily-briefing' skill:
+Using the 'daily-task-tracker' skill:
 
 * Pull my assigned, unresolved Jira tickets (assignee IN (currentUser(), "d-sage sa")) across SAGE and LIT projects. Flag anything due this week or blocked. 
 
