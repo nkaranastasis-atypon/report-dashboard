@@ -7,7 +7,7 @@ Watches a Reports folder with the structure:
 Parses filenames into structured fields (action, ticket, time),
 stores state in SQLite, serves a REST API for the dashboard UI.
 
-Default reports dir:  %userprofile%\\Documents\\Claude\\ai-triage
+Default reports dir: C:\\Atypon\\Claude\\ai-triage
 Default port       : 8765
 
 Usage:
@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+from dashboard_core import DB_PATH, parse_date_folder, parse_filename
 
 # ---------------------------------------------------------------------------
 # Filename / folder parser
@@ -53,58 +54,9 @@ from watchdog.observers import Observer
 #   - first remaining segment   → action
 #   - everything between        → ticket
 
-_DATE8_RE = re.compile(r'^\d{8}$')
-_TIME6_RE = re.compile(r'^\d{6}$')
-_FOLDER_DATE_RE = re.compile(r'^(\d{4})(\d{2})(\d{2})$')
-
-
-def parse_date_folder(name: str) -> str:
-    m = _FOLDER_DATE_RE.match(name)
-    if m:
-        try:
-            return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date().isoformat()
-        except ValueError:
-            pass
-    return name  # non-date folder: return as-is
-
-
-def parse_filename(name: str):
-    """Return (action, ticket, file_date, file_ts) parsed from a report filename.
-
-    All four fields may be None if not present/parseable.
-    """
-    stem  = name[:-5] if name.lower().endswith('.html') else name
-    parts = stem.split('_')
-
-    ts_raw   = None
-    date_raw = None
-
-    # Peel time (6 digits) off the right
-    if parts and _TIME6_RE.match(parts[-1]):
-        ts_raw = parts.pop()
-
-    # Peel date (8 digits) off the right
-    if parts and _DATE8_RE.match(parts[-1]):
-        date_raw = parts.pop()
-
-    action = parts[0] if parts else None
-    ticket = '_'.join(parts[1:]) if len(parts) > 1 else None
-
-    # Format HHMMSS → HH:MM:SS
-    file_ts = (f"{ts_raw[:2]}:{ts_raw[2:4]}:{ts_raw[4:]}"
-               if ts_raw and len(ts_raw) == 6 else ts_raw)
-
-    # Format YYYYMMDD → YYYY-MM-DD
-    file_date = (f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:]}"
-                 if date_raw and len(date_raw) == 8 else date_raw)
-
-    return action, ticket, file_date, file_ts
-
-
 # ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
-DB_PATH    = Path(__file__).parent / "dashboard_state.db"
 STATIC_DIR = Path(__file__).parent / "static"
 
 _db_lock = threading.Lock()
@@ -165,6 +117,8 @@ def init_db():
         conn.commit()
     except Exception:
         pass  # column already exists - safe to ignore
+    conn.execute("UPDATE reports SET action='Reply' WHERE action='reply'")
+    conn.commit()
     conn.close()
 
 
@@ -186,6 +140,7 @@ def upsert_report(path: Path, reports_dir: Path):
 
     date_folder                          = parse_date_folder(folder_name)
     action, ticket, file_date, file_ts   = parse_filename(filename)
+    action = action.title() if action else action
     size                                 = path.stat().st_size if path.exists() else 0
     now                                  = _now()
 
@@ -193,18 +148,19 @@ def upsert_report(path: Path, reports_dir: Path):
         conn = get_db()
         try:
             existing = conn.execute(
-                "SELECT id, status FROM reports WHERE path = ?", (str(rel),)
+                "SELECT id, size_bytes FROM reports WHERE path = ?", (str(rel),)
             ).fetchone()
 
             if existing:
                 conn.execute(
-                    "UPDATE reports SET size_bytes=?, modified_at=?, action=?, ticket=?, file_date=?, file_ts=? WHERE path=?",
-                    (size, now, action, ticket, file_date, file_ts, str(rel))
+                    "UPDATE reports SET size_bytes=?, modified_at=CASE WHEN size_bytes != ? THEN ? ELSE modified_at END, action=?, ticket=?, file_date=?, file_ts=? WHERE path=?",
+                    (size, size, now, action, ticket, file_date, file_ts, str(rel))
                 )
-                conn.execute(
-                    "INSERT INTO events (report_id, event_type, detail, created_at) VALUES (?,?,?,?)",
-                    (existing["id"], "modified", f"File updated — {size} bytes", now)
-                )
+                if existing["size_bytes"] != size:
+                    conn.execute(
+                        "INSERT INTO events (report_id, event_type, detail, created_at) VALUES (?,?,?,?)",
+                        (existing["id"], "modified", f"File updated — {size} bytes", now)
+                    )
             else:
                 cur = conn.execute(
                     """INSERT INTO reports
@@ -496,6 +452,7 @@ def update_status(report_id: int, body: StatusUpdate):
     if body.status not in VALID_STATUSES:
         raise HTTPException(400, f"status must be one of {VALID_STATUSES}")
     now = _now()
+    note_supplied = "note" in body.model_fields_set
     with _db_lock:
         conn = get_db()
         try:
@@ -503,10 +460,16 @@ def update_status(report_id: int, body: StatusUpdate):
             if not row:
                 raise HTTPException(404, "Not found")
             old = row["status"]
-            conn.execute(
-                "UPDATE reports SET status=?, note=?, actioned_at=? WHERE id=?",
-                (body.status, body.note, now, report_id)
-            )
+            if note_supplied:
+                conn.execute(
+                    "UPDATE reports SET status=?, note=?, actioned_at=? WHERE id=?",
+                    (body.status, body.note, now, report_id)
+                )
+            else:
+                conn.execute(
+                    "UPDATE reports SET status=?, actioned_at=? WHERE id=?",
+                    (body.status, now, report_id)
+                )
             conn.execute(
                 "INSERT INTO events (report_id, event_type, detail, created_at) VALUES (?,?,?,?)",
                 (report_id, "status_change",
@@ -524,16 +487,23 @@ def bulk_update(body: BulkUpdate):
         raise HTTPException(400, "Invalid status")
     now = _now()
     updated = 0
+    note_supplied = "note" in body.model_fields_set
     with _db_lock:
         conn = get_db()
         try:
             for rid in body.ids:
                 row = conn.execute("SELECT status FROM reports WHERE id=?", (rid,)).fetchone()
                 if row:
-                    conn.execute(
-                        "UPDATE reports SET status=?, note=?, actioned_at=? WHERE id=?",
-                        (body.status, body.note, now, rid)
-                    )
+                    if note_supplied:
+                        conn.execute(
+                            "UPDATE reports SET status=?, note=?, actioned_at=? WHERE id=?",
+                            (body.status, body.note, now, rid)
+                        )
+                    else:
+                        conn.execute(
+                            "UPDATE reports SET status=?, actioned_at=? WHERE id=?",
+                            (body.status, now, rid)
+                        )
                     conn.execute(
                         "INSERT INTO events (report_id, event_type, detail, created_at) VALUES (?,?,?,?)",
                         (rid, "status_change", f"bulk → {body.status}", now)
@@ -678,9 +648,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-DEFAULT_REPORTS_DIR   = Path.home() / "Documents" / "Claude" / "ai-triage"
-DEFAULT_BRIEFINGS_DIR = Path.home() / "Documents" / "Claude" / "Daily briefing" / "Reports"
-
+DEFAULT_REPORTS_DIR   = Path("C:/Atypon/Claude/ai-triage")
+DEFAULT_BRIEFINGS_DIR = Path("C:/Atypon/Claude/Daily briefing/Reports")
 
 def main():
     global reports_dir_global, briefings_dir_global

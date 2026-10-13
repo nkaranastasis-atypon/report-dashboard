@@ -61,8 +61,8 @@ pip install -r requirements.txt
 ## Run
 
 ```bat
-REM Defaults: reports  = %userprofile%\Documents\Claude\ai-triage
-REM           briefings = %userprofile%\Documents\Claude\Daily briefing\Reports
+REM Defaults: reports  = C:\Atypon\Claude\ai-triage
+REM           briefings = C:\Atypon\Claude\Daily briefing\Reports
 REM           port      = 8765
 python server.py
 
@@ -151,3 +151,26 @@ The `Cowork tasks/` folder contains the Claude task definitions that produce the
 - Checks for mentions of the user in tickets not directly assigned
 - Runs a secondary pass for callouts to "Tier1 Release Managers"
 - Writes a prioritized briefing MD file named `YYYY-MM-DD.md`, converts it to HTML, and appends a line to `action_log.txt`
+
+## MCP Server
+
+The read-only MCP server exposes report history, dashboard status and notes, report content, daily briefings, open items, and aggregate stats over stdio. Install it with the project requirements, then add an entry to `%APPDATA%\Claude\claude_desktop_config.json` using absolute paths:
+
+```json
+{
+  "mcpServers": {
+    "report-dashboard": {
+      "command": "C:\\Path\\To\\python.exe",
+      "args": [
+        "C:\\Atypon\\github\\report-dashboard\\mcp_server.py",
+        "--triage-root", "C:\\Atypon\\Claude\\ai-triage",
+        "--briefings-root", "C:\\Atypon\\Claude\\Daily briefing"
+      ]
+    }
+  }
+}
+```
+
+The database defaults to `dashboard_state.db` beside `server.py`. The default report and briefing roots are `C:\Atypon\Claude\ai-triage` and `C:\Atypon\Claude\Daily briefing`; override them with `--db`, `--triage-root`, and `--briefings-root`, or with `RD_DB_PATH`, `RD_TRIAGE_ROOT`, and `RD_BRIEFINGS_ROOT`. Restart Claude Desktop after changing its configuration.
+
+To run the test suite, install `requirements-dev.txt` and run `python -m pytest`.

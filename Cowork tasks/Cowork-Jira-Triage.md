@@ -1,15 +1,13 @@
-## Jira Action Polling Task
-
-
-
 ** Memory and personalization data under the "\CONTEXT" subfolder**
+
+
+## Jira Action Polling Task
 
 
 
 **Everything else that is related to this task is under the "\ai-triage\" subfolder. All paths are relative to that.**
 
-
-
+Use the 'report-dashboard' connector to query status and contents of past reports.
 
 
 ### State management
@@ -82,6 +80,12 @@ ORDER BY priority DESC, updated
 
 
 
+### Step 1.5 — Assess status of past work item
+
+Call get_ticket_context for each candidate ticket, read its statuses and notes as the user’s authoritative decisions, and check current Jira activity before skipping a ticket whose latest report is done or canceled.
+
+
+
 
 
 ### Step 2 — Assess each work item
@@ -89,6 +93,7 @@ ORDER BY priority DESC, updated
 For each returned ticket, read recent comments and determine if action is required by currentUser or d-sage sa.
 
 
+Fetching comments — MANDATORY: For every returned ticket, retrieve comments with a dedicated call using fields=comment (and comment_limit ≥ 15). Do NOT rely on a combined call that also requests expand=changelog — that combination can return an empty comments array and silently hide comment-based triggers. Treat the changelog and the comments as two separate fetches. If a ticket's updated timestamp is newer than [last_run] but the comment fetch returns zero comments, re-fetch comments once with fields=comment alone before concluding "no comment"; only accept an empty result if the dedicated call also returns empty.
 
 **Action IS required if:**
 
@@ -118,15 +123,23 @@ For each returned ticket, read recent comments and determine if action is requir
 
 - The update is a field-only change (fix version, label, etc.), unless the label "pending-feedback" is added
 
-- A ticket is resolved and QA is pending, without the user or d-sage sa are explicitly mentioned. SAs are not QA and they don't normally test resolved tickets, but they may consult in testing cases or the interpretation of test results, when they are asked.   
+- A ticket is resolved and QA is pending, without the user or d-sage sa being explicitly mentioned. SAs are not QA, and they don't normally test resolved tickets, but they may consult in testing cases or the interpretation of test results when they are asked.
 
 
+
+** Special case **
+
+When a ticket is transitioned to the 'Closed' state, use the `ticket-knowledge-capture` skill to evaluate the ticket history and keep a lessons learned log, (override path with: ../context/ )
+
+Pre-conclusion check: Before logging any ticket as "no action required", confirm that for each ticket updated since [last_run] you have inspected the actual comment bodies (not just the changelog). A ticket updated after [last_run] with an unread comment authored by anyone other than Nikos / 5ac24f7a3cde3440ff006be8 / d-sage sa must be assessed against the action-required criteria, regardless of any concurrent assignee/CC/score field changes that may share the same timestamp.
 
 ### Step 3 — Discover pending tasks received via email
 
 - Use only the Gmail MCP connector (do not attempt to read emails from Outlook)
 
 - From the recent, unread emails since the last job execution, exclude all that are received from jira (i.e. their title starts with `[JIRA]`)
+
+- Be vigilant for meeting notes (generated either automatically or manually) and Confluence updates that mention me (Nikos Karanastasis)
 
 - Read the email body and assess if an action is required for any of the remaining emails
 
@@ -164,11 +177,11 @@ A subfolder in the output path: \YYYYMMDD\
 
 **Action verbs:**
 
-- `Triage` — need to create an internal ticket for engineering
+- `Triage` — need to create an internal ticket for engineering. If there are internal tickets linked to the external, confirm if any of these can serve as the triaged internal ticket.
 
-- `Discover` — needs further investigation before deciding next steps
+- `Discover` — needs further investigation before deciding next steps. Consider linked tickets in understanding the context and the scope of the discovery
 
-- `Reply` — can directly post a reply on the ticket
+- `Reply` — can directly post a reply on the ticket. Before suggesting a reply, check linked internal tickets, in case the needed information already exists there
 
 - `Verify` — need to verify reported findings: NOT for resolved items that need just testing, which is a QA team responsibility, but ONLY for items with pending questions that need verification by a solutions architect)
 
@@ -260,9 +273,7 @@ One-line justification for this choice.
 
 * After the MD report is ready, run the following Python script from the output folder to transform the report to HTML directly at the report subfolder:
 
-`python .\script\md_to_html.py .\YYYYMMDD\<filename>>.md
-
-.\Reports\YYYYMMDD\<filename>.html`
+`python .\script\md_to_html.py .\YYYYMMDD\<filename>>.md -o .\Reports\YYYYMMDD\<filename>.html`
 
 * If the HTML report is not created in the expected folder, move it there. 
 
@@ -293,6 +304,8 @@ Always append to action_log.txt in the output folder, regardless of whether acti
 ### General guidelines
 
 - Use available skills as needed
+
+- For the 'Reply' action and any other action that implies a response to some 3rd party, use the 'humanizer' skill to make the response sound less AI-generated.
 
 - Format all ticket references as: [TICKET-KEY](https://jira.prod.atypon.com/browse/TICKET-KEY)
 
