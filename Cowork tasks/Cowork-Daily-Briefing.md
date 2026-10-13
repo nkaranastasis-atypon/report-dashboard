@@ -34,7 +34,7 @@ Do not forget to:
 
 ** Special case **
 
-When a ticket is transitioned to the 'Closed' state, use the `ticket-knowledge-capture` skill to evaluate the ticket history and keep a lessons learned log (override path with: ../context/ )
+When a ticket is transitioned to the 'Closed' state, use the `ticket-knowledge-capture` skill to evaluate the ticket history and keep a lessons learned log (override path with: ../CONTEXT/ )
 
 
 Finally:
