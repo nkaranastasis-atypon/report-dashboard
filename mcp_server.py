@@ -34,10 +34,10 @@ def _settings_from_env() -> Settings:
     return Settings(
         db_path=Path(os.environ.get("RD_DB_PATH", str(DB_PATH))),
         triage_root=Path(
-            os.environ.get("RD_TRIAGE_ROOT", r"C:\Atypon\Claude\ai-triage")
+            os.environ.get("RD_TRIAGE_ROOT", r"C:\Atypon\AI-stuff\reporting\ai-triage")
         ),
         briefings_root=Path(
-            os.environ.get("RD_BRIEFINGS_ROOT", r"C:\Atypon\Claude\Daily briefing")
+            os.environ.get("RD_BRIEFINGS_ROOT", r"C:\Atypon\AI-stuff\reporting\daily-briefing")
         ),
     )
 
@@ -600,12 +600,12 @@ def main(argv: list[str] | None = None):
     parser.add_argument("--db", default=os.environ.get("RD_DB_PATH", str(DB_PATH)))
     parser.add_argument(
         "--triage-root",
-        default=os.environ.get("RD_TRIAGE_ROOT", r"C:\Atypon\Claude\ai-triage"),
+        default=os.environ.get("RD_TRIAGE_ROOT", r"C:\Atypon\AI-stuff\reporting\ai-triage"),
     )
     parser.add_argument(
         "--briefings-root",
         default=os.environ.get(
-            "RD_BRIEFINGS_ROOT", r"C:\Atypon\Claude\Daily briefing"
+            "RD_BRIEFINGS_ROOT", r"C:\Atypon\AI-stuff\reporting\daily-briefing"
         ),
     )
     args = parser.parse_args(argv)

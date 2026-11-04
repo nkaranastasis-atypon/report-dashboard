@@ -7,7 +7,7 @@ Watches a Reports folder with the structure:
 Parses filenames into structured fields (action, ticket, time),
 stores state in SQLite, serves a REST API for the dashboard UI.
 
-Default reports dir: C:\\Atypon\\Claude\\ai-triage
+Default reports dir: C:\\Atypon\\AI-stuff\\reporting\\ai-triage
 Default port       : 8765
 
 Usage:
@@ -648,8 +648,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-DEFAULT_REPORTS_DIR   = Path("C:/Atypon/Claude/ai-triage")
-DEFAULT_BRIEFINGS_DIR = Path("C:/Atypon/Claude/Daily briefing/Reports")
+DEFAULT_REPORTS_DIR   = Path("C:/Atypon/AI-stuff/reporting/ai-triage")
+DEFAULT_BRIEFINGS_DIR = Path("C:/Atypon/AI-stuff/reporting/daily-briefing/Reports")
 
 def main():
     global reports_dir_global, briefings_dir_global
